@@ -9,6 +9,8 @@ import { datasetRoutes } from './routes/datasets';
 import { pipelineRoutes } from './routes/pipelines';
 import { runRoutes } from './routes/runs';
 import { alertRoutes } from './routes/alerts';
+import { connectRabbitMQ, consumePipelineRuns, disconnectRabbitMQ } from './services/rabbitmq';
+import { handlePipelineRun } from './services/pipelineWorker';
 
 const app = Fastify({
   logger: true,
@@ -83,11 +85,18 @@ await alertRoutes(app);
 // Start server
 const start = async () => {
   try {
+    // Connect to RabbitMQ
+    await connectRabbitMQ();
+
+    // Start consuming pipeline run messages
+    await consumePipelineRuns(handlePipelineRun);
+
     await app.listen({ port: 3000, host: '0.0.0.0' });
     console.log('✅ Server running at http://localhost:3000');
     console.log('📚 Swagger UI available at http://localhost:3000/docs');
   } catch (err) {
     app.log.error(err);
+    await disconnectRabbitMQ();
     process.exit(1);
   }
 };

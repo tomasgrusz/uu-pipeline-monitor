@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { pipelines, pipelineVersions, datasets } from '../schema';
 import { PipelineCreateSchema, PipelineVersionCreateSchema } from '../validators';
+import { publishPipelineRun } from '../services/rabbitmq';
 
 export async function pipelineRoutes(app: FastifyInstance) {
   // Pipelines endpoints
@@ -587,4 +588,87 @@ export async function pipelineRoutes(app: FastifyInstance) {
       }
     },
   });
+
+   // POST /pipelines/:id/trigger - Trigger a pipeline run
+   app.post('/pipelines/:id/trigger', {
+     schema: {
+       description: 'Manually trigger a pipeline run',
+       tags: ['Pipelines'],
+       params: {
+         type: 'object',
+         properties: {
+           id: { type: 'string', format: 'uuid' },
+         },
+         required: ['id'],
+       },
+       response: {
+         201: {
+           description: 'Job run created',
+           type: 'object',
+           properties: {
+             runId: { type: 'string', format: 'uuid' },
+             pipelineId: { type: 'string', format: 'uuid' },
+             status: { type: 'string' },
+             message: { type: 'string' },
+           },
+         },
+         404: {
+           description: 'Pipeline or version not found',
+           type: 'object',
+           properties: {
+             error: { type: 'string' },
+           },
+         },
+         500: {
+           description: 'Server error',
+           type: 'object',
+           properties: {
+             error: { type: 'string' },
+           },
+         },
+       },
+     },
+      async handler(request, reply) {
+        try {
+          const { id } = request.params as { id: string };
+
+          // Verify pipeline exists and has a version
+          const pipeline = await db
+            .select()
+            .from(pipelines)
+            .where(eq(pipelines.id, id))
+            .limit(1);
+
+          if (pipeline.length === 0) {
+            return reply.status(404).send({ error: 'Pipeline not found' });
+          }
+
+          // Verify pipeline has at least one version
+          const hasVersion = await db
+            .select()
+            .from(pipelineVersions)
+            .where(eq(pipelineVersions.pipelineId, id))
+            .limit(1);
+
+          if (hasVersion.length === 0) {
+            return reply.status(404).send({ error: 'No pipeline versions found' });
+          }
+
+          // Publish to RabbitMQ queue
+          await publishPipelineRun(id);
+
+          reply.code(201);
+          return {
+            pipelineId: id,
+            status: 'queued',
+            message: 'Pipeline run queued for execution',
+          };
+        } catch (error: any) {
+          if (error.message.includes('No pipeline versions')) {
+            return reply.status(404).send({ error: error.message });
+          }
+          reply.status(500).send({ error: 'Failed to queue pipeline run' });
+        }
+      },
+    });
 }
