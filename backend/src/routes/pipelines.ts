@@ -4,6 +4,7 @@ import { db } from '../db';
 import { pipelines, pipelineVersions, datasets } from '../schema';
 import { PipelineCreateSchema, PipelineVersionCreateSchema } from '../validators';
 import { publishPipelineRun } from '../services/rabbitmq';
+import { reschedulePipeline, isValidCronExpression } from '../services/cronScheduler';
 
 export async function pipelineRoutes(app: FastifyInstance) {
   // Pipelines endpoints
@@ -232,6 +233,13 @@ export async function pipelineRoutes(app: FastifyInstance) {
             updatedAt: { type: 'string', format: 'date-time' },
           },
         },
+        400: {
+          description: 'Invalid cron expression',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
         404: {
           description: 'Pipeline or Dataset not found',
           type: 'object',
@@ -278,7 +286,15 @@ export async function pipelineRoutes(app: FastifyInstance) {
         if (updates.datasetId !== undefined) updateData.datasetId = updates.datasetId;
         if (updates.name !== undefined) updateData.name = updates.name;
         if (updates.description !== undefined) updateData.description = updates.description;
-        if (updates.schedule !== undefined) updateData.schedule = updates.schedule;
+        if (updates.schedule !== undefined) {
+          // Validate cron expression if schedule is being updated
+          if (updates.schedule && !isValidCronExpression(updates.schedule)) {
+            return reply
+              .status(400)
+              .send({ error: 'Invalid cron expression format' });
+          }
+          updateData.schedule = updates.schedule;
+        }
         if (updates.active !== undefined) updateData.active = updates.active;
 
         if (Object.keys(updateData).length === 0) {
@@ -290,6 +306,11 @@ export async function pipelineRoutes(app: FastifyInstance) {
           .set({ ...updateData, updatedAt: new Date() })
           .where(eq(pipelines.id, id))
           .returning();
+
+        // Reschedule if schedule was updated
+        if (updates.schedule !== undefined) {
+          await reschedulePipeline(id);
+        }
 
         return updated[0];
       } catch (error) {

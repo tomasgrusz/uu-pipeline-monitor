@@ -11,6 +11,7 @@ import { runRoutes } from './routes/runs';
 import { alertRoutes } from './routes/alerts';
 import { connectRabbitMQ, consumePipelineRuns, disconnectRabbitMQ } from './services/rabbitmq';
 import { handlePipelineRun } from './services/pipelineWorker';
+import { startCronScheduler, stopCronScheduler } from './services/cronScheduler';
 
 const app = Fastify({
   logger: true,
@@ -91,14 +92,35 @@ const start = async () => {
     // Start consuming pipeline run messages
     await consumePipelineRuns(handlePipelineRun);
 
+    // Start cron scheduler for scheduled pipelines
+    await startCronScheduler();
+
     await app.listen({ port: 3000, host: '0.0.0.0' });
     console.log('✅ Server running at http://localhost:3000');
     console.log('📚 Swagger UI available at http://localhost:3000/docs');
   } catch (err) {
     app.log.error(err);
+    stopCronScheduler();
     await disconnectRabbitMQ();
     process.exit(1);
   }
 };
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  stopCronScheduler();
+  await disconnectRabbitMQ();
+  await app.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('\n🛑 SIGINT received, shutting down gracefully...');
+  stopCronScheduler();
+  await disconnectRabbitMQ();
+  await app.close();
+  process.exit(0);
+});
 
 start();
