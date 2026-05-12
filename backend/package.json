@@ -14,9 +14,11 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
     "dotenv": "^16.3.1",
     "drizzle-orm": "^0.29.4",
-    "fastify": "^4.25.2",
+    "fastify": "^5.8.5",
     "pg": "^8.11.3",
     "zod": "^3.22.4"
   },
