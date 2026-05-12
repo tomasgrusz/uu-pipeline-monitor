@@ -30,3 +30,25 @@ export const UserSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 
+// Dataset schemas
+export const DatasetCreateSchema = z.object({
+  name: z.string().min(1, 'Dataset name is required'),
+  description: z.string().optional(),
+  owner: z.string().min(1, 'Owner is required'),
+  schemaVersion: z.number().int().positive().default(1),
+});
+
+export type DatasetCreate = z.infer<typeof DatasetCreateSchema>;
+
+export const DatasetSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  owner: z.string(),
+  schemaVersion: z.number(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type Dataset = z.infer<typeof DatasetSchema>;
+

@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { HealthCheckSchema } from './validators';
 import { userRoutes } from './routes/users';
+import { datasetRoutes } from './routes/datasets';
 
 const app = Fastify({
   logger: true,
@@ -71,6 +72,7 @@ app.get('/health', {
 
 // Register routes
 await userRoutes(app);
+await datasetRoutes(app);
 
 // Start server
 const start = async () => {
