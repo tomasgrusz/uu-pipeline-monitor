@@ -52,3 +52,48 @@ export const DatasetSchema = z.object({
 
 export type Dataset = z.infer<typeof DatasetSchema>;
 
+// Pipeline schemas
+export const PipelineCreateSchema = z.object({
+  datasetId: z.string().uuid('Dataset ID must be a valid UUID'),
+  name: z.string().min(1, 'Pipeline name is required'),
+  description: z.string().optional(),
+  schedule: z.string().optional(),
+  active: z.boolean().default(true),
+});
+
+export type PipelineCreate = z.infer<typeof PipelineCreateSchema>;
+
+export const PipelineSchema = z.object({
+  id: z.string().uuid(),
+  datasetId: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  schedule: z.string().nullable(),
+  active: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type Pipeline = z.infer<typeof PipelineSchema>;
+
+// Pipeline Version schemas
+export const PipelineVersionConfigSchema = z.record(z.any());
+
+export const PipelineVersionCreateSchema = z.object({
+  pipelineId: z.string().uuid('Pipeline ID must be a valid UUID'),
+  version: z.number().int().positive('Version must be a positive integer'),
+  config: PipelineVersionConfigSchema,
+});
+
+export type PipelineVersionCreate = z.infer<typeof PipelineVersionCreateSchema>;
+
+export const PipelineVersionSchema = z.object({
+  id: z.string().uuid(),
+  pipelineId: z.string().uuid(),
+  version: z.number(),
+  config: PipelineVersionConfigSchema,
+  createdAt: z.date(),
+});
+
+export type PipelineVersion = z.infer<typeof PipelineVersionSchema>;
+
