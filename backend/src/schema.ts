@@ -1,10 +1,10 @@
-import { pgTable, serial, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core';
 
-// Tables will be defined here
-// Example table structure:
-// export const users = pgTable('users', {
-//   id: serial('id').primaryKey(),
-//   email: varchar('email', { length: 255 }).notNull().unique(),
-//   name: varchar('name', { length: 255 }),
-//   createdAt: timestamp('created_at').defaultNow(),
-// });
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  role: varchar('role', { length: 50 }).notNull().default('viewer'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+

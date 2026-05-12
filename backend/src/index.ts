@@ -4,6 +4,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { HealthCheckSchema } from './validators';
+import { userRoutes } from './routes/users';
 
 const app = Fastify({
   logger: true,
@@ -54,7 +55,6 @@ app.get('/health', {
   },
   async handler(request, reply) {
     try {
-      // Test database connection
       await db.execute(sql`SELECT 1`);
 
       const response = HealthCheckSchema.parse({
@@ -68,6 +68,9 @@ app.get('/health', {
     }
   },
 });
+
+// Register routes
+await userRoutes(app);
 
 // Start server
 const start = async () => {
