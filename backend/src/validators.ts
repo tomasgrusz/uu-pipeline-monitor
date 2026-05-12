@@ -150,3 +150,36 @@ export const JobRunStatusUpdateSchema = z.object({
 
 export type JobRunStatusUpdate = z.infer<typeof JobRunStatusUpdateSchema>;
 
+// Alert Rule schemas
+export const AlertRuleCreateSchema = z.object({
+  pipelineId: z.string().uuid('Pipeline ID must be a valid UUID'),
+  name: z.string().min(1, 'Alert rule name is required'),
+  condition: z.string().min(1, 'Condition is required'),
+  enabled: z.boolean().default(true),
+});
+
+export type AlertRuleCreate = z.infer<typeof AlertRuleCreateSchema>;
+
+export const AlertRuleSchema = z.object({
+  id: z.string().uuid(),
+  pipelineId: z.string().uuid(),
+  name: z.string(),
+  condition: z.string(),
+  enabled: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type AlertRule = z.infer<typeof AlertRuleSchema>;
+
+// Alert Event schemas
+export const AlertEventSchema = z.object({
+  id: z.string().uuid(),
+  ruleId: z.string().uuid(),
+  runId: z.string().uuid(),
+  message: z.string(),
+  createdAt: z.date(),
+});
+
+export type AlertEvent = z.infer<typeof AlertEventSchema>;
+

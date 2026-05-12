@@ -95,3 +95,43 @@ export const jobRunSteps = pgTable(
   })
 );
 
+export const alertRules = pgTable(
+  'alert_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    condition: text('condition').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (table) => ({
+    pipelineFk: foreignKey({
+      columns: [table.pipelineId],
+      foreignColumns: [pipelines.id],
+    }).onDelete('cascade'),
+  })
+);
+
+export const alertEvents = pgTable(
+  'alert_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ruleId: uuid('rule_id').notNull(),
+    runId: uuid('run_id').notNull(),
+    message: text('message').notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => ({
+    ruleFk: foreignKey({
+      columns: [table.ruleId],
+      foreignColumns: [alertRules.id],
+    }).onDelete('cascade'),
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [jobRuns.id],
+    }).onDelete('cascade'),
+  })
+);
+

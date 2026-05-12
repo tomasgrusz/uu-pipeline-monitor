@@ -8,6 +8,7 @@ import { userRoutes } from './routes/users';
 import { datasetRoutes } from './routes/datasets';
 import { pipelineRoutes } from './routes/pipelines';
 import { runRoutes } from './routes/runs';
+import { alertRoutes } from './routes/alerts';
 
 const app = Fastify({
   logger: true,
@@ -77,6 +78,7 @@ await userRoutes(app);
 await datasetRoutes(app);
 await pipelineRoutes(app);
 await runRoutes(app);
+await alertRoutes(app);
 
 // Start server
 const start = async () => {
