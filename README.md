@@ -69,3 +69,11 @@ We've included a helper script for common PostgreSQL operations:
 ./postgres.sh logs       # View container logs
 ./postgres.sh shell      # Open psql shell
 ```
+
+## Type Safety
+
+- **TypeScript** - Full type safety across the application
+- **Zod** - Runtime validation for request/response schemas
+- **Drizzle ORM** - Type-safe database queries
+
+All API endpoints are automatically documented and type-checked.
