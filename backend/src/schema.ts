@@ -55,3 +55,43 @@ export const pipelineVersions = pgTable(
   })
 );
 
+export const jobRuns = pgTable(
+  'job_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pipelineId: uuid('pipeline_id').notNull(),
+    pipelineVersion: integer('pipeline_version').notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('pending'),
+    startedAt: timestamp('started_at').notNull().defaultNow(),
+    finishedAt: timestamp('finished_at'),
+    recordsProcessed: integer('records_processed').notNull().default(0),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => ({
+    pipelineFk: foreignKey({
+      columns: [table.pipelineId],
+      foreignColumns: [pipelines.id],
+    }).onDelete('cascade'),
+  })
+);
+
+export const jobRunSteps = pgTable(
+  'job_run_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id').notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('pending'),
+    startedAt: timestamp('started_at').notNull().defaultNow(),
+    finishedAt: timestamp('finished_at'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => ({
+    runFk: foreignKey({
+      columns: [table.runId],
+      foreignColumns: [jobRuns.id],
+    }).onDelete('cascade'),
+  })
+);
+

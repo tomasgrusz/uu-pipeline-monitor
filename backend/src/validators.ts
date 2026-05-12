@@ -97,3 +97,56 @@ export const PipelineVersionSchema = z.object({
 
 export type PipelineVersion = z.infer<typeof PipelineVersionSchema>;
 
+// Job Run Status enum
+export const JobRunStatusSchema = z.enum(['pending', 'running', 'success', 'failed']);
+export type JobRunStatus = z.infer<typeof JobRunStatusSchema>;
+
+// Job Run Step Status enum
+export const JobRunStepStatusSchema = z.enum(['pending', 'running', 'success', 'failed']);
+export type JobRunStepStatus = z.infer<typeof JobRunStepStatusSchema>;
+
+// Job Run Step schema
+export const JobRunStepSchema = z.object({
+  id: z.string().uuid(),
+  runId: z.string().uuid(),
+  name: z.string(),
+  status: JobRunStepStatusSchema,
+  startedAt: z.date(),
+  finishedAt: z.date().nullable(),
+  createdAt: z.date(),
+});
+
+export type JobRunStep = z.infer<typeof JobRunStepSchema>;
+
+// Job Run schemas
+export const JobRunSchema = z.object({
+  id: z.string().uuid(),
+  pipelineId: z.string().uuid(),
+  pipelineVersion: z.number(),
+  status: JobRunStatusSchema,
+  startedAt: z.date(),
+  finishedAt: z.date().nullable(),
+  recordsProcessed: z.number(),
+  errorMessage: z.string().nullable(),
+  createdAt: z.date(),
+});
+
+export type JobRun = z.infer<typeof JobRunSchema>;
+
+// Job Run with steps
+export const JobRunWithStepsSchema = JobRunSchema.extend({
+  steps: z.array(JobRunStepSchema),
+});
+
+export type JobRunWithSteps = z.infer<typeof JobRunWithStepsSchema>;
+
+// Job Run status update
+export const JobRunStatusUpdateSchema = z.object({
+  status: JobRunStatusSchema,
+  finishedAt: z.date().optional(),
+  recordsProcessed: z.number().optional(),
+  errorMessage: z.string().optional(),
+});
+
+export type JobRunStatusUpdate = z.infer<typeof JobRunStatusUpdateSchema>;
+

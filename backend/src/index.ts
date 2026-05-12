@@ -7,6 +7,7 @@ import { HealthCheckSchema } from './validators';
 import { userRoutes } from './routes/users';
 import { datasetRoutes } from './routes/datasets';
 import { pipelineRoutes } from './routes/pipelines';
+import { runRoutes } from './routes/runs';
 
 const app = Fastify({
   logger: true,
@@ -75,6 +76,7 @@ app.get('/health', {
 await userRoutes(app);
 await datasetRoutes(app);
 await pipelineRoutes(app);
+await runRoutes(app);
 
 // Start server
 const start = async () => {
