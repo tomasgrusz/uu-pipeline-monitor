@@ -1,4 +1,9 @@
 import amqplib, { Channel } from 'amqplib';
+import { acquireDatasetLock, isDatasetLocked } from './datasetLock';
+import { getDatasetIdForPipeline } from './helpers';
+import { jobRuns } from '../schema';
+import { db } from '../db';
+import { eq } from 'drizzle-orm/sql/expressions/conditions';
 
 let connection: any = null;
 let channel: Channel | null = null;
@@ -24,10 +29,12 @@ export async function connectRabbitMQ(): Promise<void> {
     // Bind queue to exchange
     await channel.bindQueue(PIPELINE_QUEUE, EXCHANGE_NAME, 'pipeline.trigger');
 
-    // Set QoS (prefetch count = 1 to ensure one message per consumer at a time)
-    await channel.prefetch(1);
+    // Set QoS: prefetch 10 to allow multiple pipelines to run in parallel
+    // Pipelines will only execute on different datasets, so this enables parallelism
+    // without risking data conflicts
+    await channel.prefetch(10);
 
-    console.log('✅ Connected to RabbitMQ');
+    console.log('✅ Connected to RabbitMQ (prefetch: 10 - allows parallel execution of pipelines on different datasets)');
   } catch (error) {
     console.error('❌ Failed to connect to RabbitMQ:', error);
     throw error;
@@ -54,13 +61,24 @@ export async function disconnectRabbitMQ(): Promise<void> {
 /**
  * Publish a pipeline trigger message to the queue
  */
-export async function publishPipelineRun(pipelineId: string, triggeredBy: string = 'api'): Promise<void> {
+export async function publishPipelineRun(pipelineId: string, pipelineVersion: number, triggeredBy: string = 'api'): Promise<void> {
   if (!channel) {
     throw new Error('RabbitMQ channel not initialized');
   }
 
+  const jobRun = await db
+        .insert(jobRuns)
+        .values({
+          pipelineId,
+          pipelineVersion: pipelineVersion,
+          status: 'pending',
+          createdAt: new Date()
+        })
+        .returning();
+
   const message = {
     pipelineId,
+    jobRunId: jobRun[0].id,
     timestamp: new Date().toISOString(),
     triggeredBy,
   };
@@ -74,6 +92,12 @@ export async function publishPipelineRun(pipelineId: string, triggeredBy: string
     );
     
     if (!ok) {
+      // Set job run to failed in database since we couldn't publish the message
+      await db
+        .update(jobRuns)
+        .set({ status: 'failed', errorMessage: 'Failed to publish message to RabbitMQ' })
+        .where(eq(jobRuns.id, jobRun[0].id));
+
       throw new Error('Failed to publish message to RabbitMQ');
     }
     
@@ -86,9 +110,11 @@ export async function publishPipelineRun(pipelineId: string, triggeredBy: string
 
 /**
  * Subscribe to pipeline run messages and process them
+ * Pipelines are executed concurrently, but pipelines on the same dataset
+ * are queued to prevent data conflicts.
  */
 export async function consumePipelineRuns(
-  handler: (message: { pipelineId: string; timestamp: string; triggeredBy: string }) => Promise<void>
+  handler: (message: { jobRunId: string; pipelineId: string; timestamp: string; triggeredBy: string }) => Promise<void>
 ): Promise<void> {
   if (!channel) {
     throw new Error('RabbitMQ channel not initialized');
@@ -104,29 +130,75 @@ export async function consumePipelineRuns(
 
     try {
       const content = JSON.parse(msg.content.toString());
-      console.log(`📥 Processing pipeline run: ${content.pipelineId}`);
+      console.log(`📥 Processing job run: ${content.jobRunId}`);
+
+      // Before processing, check if the dataset is locked. If it is, we throw an error to trigger a requeue.
+      // Get datasetId for this pipeline
+      const datasetId = await getDatasetIdForPipeline(content.pipelineId);
+
+      // Check if dataset is locked
+      if (isDatasetLocked(datasetId)) {
+        throw new Error(`REQUEUE: Dataset for pipeline ${content.pipelineId} is locked`);
+      }
+
+      // Acquire lock for this dataset
+      const lockAcquired = acquireDatasetLock(datasetId, content.pipelineId);
+      if (!lockAcquired) {
+        console.log(`⏳ Failed to acquire lock for dataset ${datasetId}`);
+        console.log(`   ➜ Requeuing message to try again later`);
+        throw new Error(`REQUEUE: Could not acquire lock for dataset ${datasetId}`);
+      }
+
+      console.log(`✅ Lock acquired for dataset: ${datasetId}`);
+      console.log(`⏳ Starting job execution: ${content.jobRunId}`);
+
+      await db
+        .update(jobRuns)
+        .set({ status: 'running', startedAt: new Date() })
+        .where(eq(jobRuns.id, content.jobRunId));
 
       // Call the handler
+      content.datasetId = datasetId; // Pass datasetId to handler
       await handler(content);
 
       // Acknowledge the message after successful processing
       channel!.ack(msg);
-      console.log(`✅ Acknowledged pipeline run: ${content.pipelineId}`);
+      console.log(`✅ Acknowledged job run: ${content.jobRunId}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('❌ Error processing pipeline run:', errorMsg);
-      console.error(error);
-      // Reject the message and requeue it
-      try {
-        channel!.nack(msg, false, true);
-        console.log(`🔄 Rejected and requeued message`);
-      } catch (nackError) {
-        console.error('Failed to nack message:', nackError);
+      
+      // Check if this is a requeue error (dataset is locked)
+      if (errorMsg.includes('REQUEUE:')) {
+        console.log(`⏳ Dataset conflict - waiting 10 seconds before retry...`);
+        console.log(`   ${errorMsg.split(':')[1]?.trim()}`);
+        
+        // Wait 10 seconds before requeuing to avoid busy waiting
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        
+        // Requeue the message
+        try {
+          channel!.nack(msg, false, true);
+          console.log(`🔄 Message requeued after 10s delay`);
+        } catch (nackError) {
+          console.error('Failed to nack message:', nackError);
+        }
+      } else {
+        // Permanent error - don't requeue
+        console.error('❌ Error processing pipeline run:', errorMsg);
+        console.error(error);
+        try {
+          channel!.nack(msg, false, false); // Don't requeue on permanent errors
+          console.log(`❌ Message rejected (not requeued - permanent error)`);
+        } catch (nackError) {
+          console.error('Failed to nack message:', nackError);
+        }
       }
     }
   }, { noAck: false });
 
   console.log('✅ Consumer started - listening for pipeline runs on RabbitMQ...');
+  console.log('   Pipelines on different datasets will run in parallel');
+  console.log('   Pipelines on the same dataset will queue automatically');
 }
 
 /**

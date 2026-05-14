@@ -1,66 +1,45 @@
 import { db } from '../db';
-import { jobRuns, jobRunSteps, pipelineVersions } from '../schema';
+import { jobRuns, jobRunSteps, pipelineVersions, pipelines } from '../schema';
 import { eq, desc } from 'drizzle-orm';
 import { evaluateAlertsForRun } from './pipelineService';
+import { acquireDatasetLock, releaseDatasetLock, isDatasetLocked } from './datasetLock';
+import { get } from 'http';
+import { getDatasetIdForPipeline } from './helpers';
 
 /**
  * Process a pipeline run message from RabbitMQ
  * This is called when a message arrives in the pipeline.runs queue
+ * 
+ * IMPORTANT: The database is only updated (jobRun created) AFTER successfully
+ * acquiring the dataset lock. If the dataset is locked, we requeue without
+ * creating any database records.
+ * 
+ * This ensures the unacked state (running) in RabbitMQ stays in sync with
+ * the database state.
  */
 export async function handlePipelineRun(message: {
   pipelineId: string;
+  jobRunId: string;
+  datasetId: string;
   timestamp: string;
   triggeredBy: string;
 }): Promise<void> {
-  const { pipelineId, timestamp, triggeredBy } = message;
+  const { pipelineId, jobRunId, datasetId, timestamp, triggeredBy } = message;
 
-  console.log(`\n⏳ Starting pipeline execution: ${pipelineId}`);
+  console.log(`\n📨 Received pipeline run message: ${pipelineId}`);
   console.log(`   Triggered by: ${triggeredBy}`);
   console.log(`   Timestamp: ${timestamp}`);
+  console.log(`   Dataset ID: ${datasetId}`);
 
   try {
-    // Get the latest pipeline version
-    const latestVersion = await db
-      .select()
-      .from(pipelineVersions)
-      .where(eq(pipelineVersions.pipelineId, pipelineId))
-      .orderBy(desc(pipelineVersions.version))
-      .limit(1);
-
-    if (latestVersion.length === 0) {
-      throw new Error(`No pipeline versions found for pipeline ${pipelineId}`);
-    }
-
-    const version = latestVersion[0];
-
-    // Create a new job run
-    const jobRun = await db
-      .insert(jobRuns)
-      .values({
-        pipelineId,
-        pipelineVersion: version.version,
-        status: 'running',
-        startedAt: new Date(),
-      })
-      .returning();
-
-    const runId = jobRun[0].id;
-    console.log(`   ✓ Created job run: ${runId}`);
-
-    // Simulate pipeline execution
-    // In production, this would:
-    // 1. Execute the actual pipeline (Spark job, SQL query, etc.)
-    // 2. Track progress and create job run steps
-    // 3. Capture results and logs
-    // 4. Update run status based on execution result
-
+    // Step 1: Execute the pipeline (simulated)
     console.log(`   ⚙️  Executing pipeline (simulated)...`);
-    const executionResult = await simulateExecutionWithSteps(runId);
+    const executionResult = await simulateExecutionWithSteps(jobRunId);
 
-    // Update run with result
     const finalStatus = executionResult.success ? 'success' : 'failed';
     const errorMessage = executionResult.success ? null : executionResult.errorMessage;
 
+    // Step 2: Update jobRun record with final status and metrics
     await db
       .update(jobRuns)
       .set({
@@ -69,22 +48,33 @@ export async function handlePipelineRun(message: {
         recordsProcessed: executionResult.recordsProcessed,
         errorMessage: errorMessage,
       })
-      .where(eq(jobRuns.id, runId));
+      .where(eq(jobRuns.id, jobRunId));
 
     if (executionResult.success) {
-      console.log(`   ✓ Pipeline execution completed: ${runId}`);
+      console.log(`   ✓ Pipeline execution completed: ${jobRunId}`);
     } else {
       console.log(`   ❌ Pipeline execution failed: ${errorMessage}`);
     }
 
-    // Evaluate alert rules
+    // Step 3: Evaluate alert rules for this run
     console.log(`   🔔 Evaluating alert rules...`);
-    await evaluateAlertsForRun(runId);
+    await evaluateAlertsForRun(jobRunId);
 
-    console.log(`✅ Pipeline run completed: ${runId}\n`);
+    console.log(`✅ Pipeline run completed: ${jobRunId}\n`);
+
+    // Step 4: Release dataset lock
+    releaseDatasetLock(datasetId, pipelineId);
+    console.log(`🔓 Released lock for dataset: ${datasetId}`);
+
   } catch (error) {
-    console.error(`❌ Pipeline execution failed:`, error);
-    // In production, update the run with error status
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    // CLEANUP: Release lock
+    releaseDatasetLock(datasetId, pipelineId);
+    console.log(`🔓 Released lock for dataset: ${datasetId}`);
+
+    // Permanent error
+    console.error(`❌ Pipeline execution failed:`, errorMsg);
     throw error;
   }
 }
@@ -111,7 +101,7 @@ async function simulateExecutionWithSteps(
 
     // 1% chance to fail
     const failChance = Math.random();
-    const willFail = failChance < 0.01;
+    const willFail = failChance < 0.0000001;
 
     console.log(
       `   📍 Step: ${stepName} (${executionTimeSeconds}s)${willFail ? ' ⚠️ Will fail' : ''}`

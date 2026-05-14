@@ -111,7 +111,7 @@ export const JobRunStepSchema = z.object({
   runId: z.string().uuid(),
   name: z.string(),
   status: JobRunStepStatusSchema,
-  startedAt: z.date(),
+  startedAt: z.date().nullable(),
   finishedAt: z.date().nullable(),
   createdAt: z.date(),
 });
@@ -124,7 +124,7 @@ export const JobRunSchema = z.object({
   pipelineId: z.string().uuid(),
   pipelineVersion: z.number(),
   status: JobRunStatusSchema,
-  startedAt: z.date(),
+  startedAt: z.date().nullable(),
   finishedAt: z.date().nullable(),
   recordsProcessed: z.number(),
   errorMessage: z.string().nullable(),

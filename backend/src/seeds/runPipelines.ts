@@ -3,6 +3,7 @@ import { db } from '../db';
 import { pipelines } from '../schema';
 import { publishPipelineRun } from '../services/rabbitmq';
 import { connectRabbitMQ, disconnectRabbitMQ } from '../services/rabbitmq';
+import { getLatestPipelineVersion } from '../services/helpers';
 
 /**
  * Trigger all pipelines to create sample job runs
@@ -38,7 +39,8 @@ export async function runAllPipelines() {
     for (const pipeline of activePipelines) {
       try {
         console.log(`   ⏳ ${pipeline.name}...`);
-        await publishPipelineRun(pipeline.id);
+        const version = await getLatestPipelineVersion(pipeline.id);
+        await publishPipelineRun(pipeline.id, version);
         console.log(`   ✓ Queued`);
         successCount++;
         triggeredCount++;

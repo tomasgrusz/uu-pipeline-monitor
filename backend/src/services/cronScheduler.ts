@@ -3,6 +3,7 @@ import { db } from '../db';
 import { pipelines } from '../schema';
 import { eq } from 'drizzle-orm';
 import { publishPipelineRun } from './rabbitmq';
+import { getLatestPipelineVersion } from './helpers';
 
 interface ScheduledPipeline {
   pipelineId: string;
@@ -37,7 +38,8 @@ export async function startCronScheduler() {
                 `⏰ Cron triggered: ${pipeline.name} (${pipeline.schedule})`
               );
               try {
-                await publishPipelineRun(pipeline.id, 'cron');
+                const version = await getLatestPipelineVersion(pipeline.id);
+                await publishPipelineRun(pipeline.id, version, 'cron');
                 console.log(`   ✓ Published to RabbitMQ`);
               } catch (error) {
                 console.error(
@@ -117,7 +119,8 @@ export async function reschedulePipeline(pipelineId: string) {
     async () => {
       console.log(`⏰ Cron triggered: ${p.name} (${p.schedule})`);
       try {
-        await publishPipelineRun(p.id, 'cron');
+        const version = await getLatestPipelineVersion(p.id);
+        await publishPipelineRun(p.id, version, 'cron');
         console.log(`   ✓ Published to RabbitMQ`);
       } catch (error) {
         console.error(

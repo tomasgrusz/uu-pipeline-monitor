@@ -665,18 +665,18 @@ export async function pipelineRoutes(app: FastifyInstance) {
           }
 
           // Verify pipeline has at least one version
-          const hasVersion = await db
+          const pipelineVersion = await db
             .select()
             .from(pipelineVersions)
             .where(eq(pipelineVersions.pipelineId, id))
             .limit(1);
 
-          if (hasVersion.length === 0) {
+          if (pipelineVersion.length === 0) {
             return reply.status(404).send({ error: 'No pipeline versions found' });
           }
 
           // Publish to RabbitMQ queue
-          await publishPipelineRun(id);
+          await publishPipelineRun(id, pipelineVersion[0].version);
 
           reply.code(201);
           return {
