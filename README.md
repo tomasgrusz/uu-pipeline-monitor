@@ -6,14 +6,17 @@ A modern full-stack application for asynchronous pipeline monitoring with Fastif
 
 ### Prerequisites
 
-- **Node.js** 18+ ([download](https://nodejs.org/))
-- **Docker** and **Docker Desktop** ([download](https://www.docker.com/products/docker-desktop))
+- **Node.js** 18+
+- **Docker** and **Docker Desktop**
 
 ### 1. Start Services (PostgreSQL + RabbitMQ)
 
-We provide a convenient script to manage both services:
+Use a convenient script to manage both services:
 
 ```bash
+# Navigate to backend folder
+cd backend
+
 # Start PostgreSQL and RabbitMQ
 ./docker.sh start
 
@@ -24,20 +27,20 @@ We provide a convenient script to manage both services:
 **Connection Details:**
 
 **PostgreSQL:**
+
 - Host: `localhost:5432`
 - Username: `postgres`
 - Password: `postgres`
 - Database: `uu_pipeline_monitor`
 
 **RabbitMQ:**
+
 - AMQP: `amqp://guest:guest@localhost:5672`
 - Management UI: `http://localhost:15672`
 
 ### 2. Start the Backend
 
 ```bash
-cd backend
-
 # Install dependencies
 npm install
 
@@ -59,11 +62,14 @@ You should see:
 { "status": "ok", "timestamp": "2026-05-12T11:37:24.495Z" }
 ```
 
+Swagger UI should be accessible at `http://localhost:3000/docs`.
+RabbitMQ UI should be accessible at `http://localhost:15672/`.
+
 ---
 
 ## Docker Services Management
 
-We've included a helper script for common operations:
+Included is a helper script for common operations:
 
 ```bash
 ./docker.sh start        # Start PostgreSQL and RabbitMQ
@@ -78,40 +84,31 @@ We've included a helper script for common operations:
 
 ## Architecture
 
-The system uses RabbitMQ for asynchronous pipeline execution:
+The system uses RabbitMQ for asynchronous pipeline execution and node-cron for scheduled execution:
 
 ```
-API Request          RabbitMQ Queue        Worker Process
-┌──────────────┐     ┌─────────────────┐   ┌──────────────┐
-│ POST /trigger│ ──> │ pipeline.runs   │ ──> │ Process Job │
-└──────────────┘     │ (Durable Queue) │   └──────────────┘
-                     └─────────────────┘
+Manual Trigger          RabbitMQ Queue        Worker Process
+┌──────────────┐        ┌─────────────────┐   ┌──────────────┐
+│ POST /trigger│ ────> │ pipeline.runs   │ ──> │ Process Job │
+└──────────────┘        │ (Durable Queue) │   └──────────────┘
+                        └─────────────────┘
+                              ^
+                              │
+                        Cron Scheduler
+                     (Based on schedule)
 ```
 
-- **Trigger Endpoint**: `POST /pipelines/{id}/trigger` publishes to queue
+- **Trigger Endpoint**: `POST /pipelines/{id}/trigger` publishes to queue (manual execution)
+- **Cron Scheduler**: Automatically triggers pipelines based on their cron schedule (e.g., `0 2 * * *` for 2 AM daily)
 - **Worker**: Consumes messages and executes pipelines
 - **Database**: Tracks pipeline runs and alert events
 - **Alerts**: Evaluated after each run completes
 
-## API Documentation
-
 Interactive API documentation available at:
+
 ```
 http://localhost:3000/docs
 ```
-
-### Key Endpoints
-
-**Pipeline Execution:**
-- `POST /pipelines/:id/trigger` - Queue a pipeline run
-- `GET /runs` - List all job runs
-- `GET /runs/:id` - View run details (includes steps)
-- `PATCH /runs/:id` - Update run status
-
-**Configuration:**
-- `GET/POST /pipelines` - Manage pipelines
-- `GET/POST /pipeline-versions` - Manage versions
-- `GET/POST /alert-rules` - Manage alert rules
 
 ## Type Safety
 
@@ -122,7 +119,88 @@ http://localhost:3000/docs
 
 All API endpoints are automatically documented and type-checked.
 
-## Documentation
+## Scheduling
 
-- **[RabbitMQ Setup Guide](./RABBITMQ_SETUP.md)** - Detailed RabbitMQ architecture and examples
-- **[Infrastructure Guide](./INFRASTRUCTURE.md)** - System components and workflows
+Pipelines can be scheduled to run automatically using cron expressions:
+
+### How It Works
+
+1. Each pipeline has an optional `schedule` field (cron expression format)
+2. The cron scheduler starts when the backend server starts
+3. At the scheduled time, the scheduler automatically publishes a message to RabbitMQ
+4. The worker processes the message and executes the pipeline just like a manual trigger
+
+### Cron Expression Format
+
+- `0 2 * * *` - Every day at 2:00 AM
+- `0 * * * *` - Every hour at minute 0
+- `30 1 * * *` - Every day at 1:30 AM
+- `0 0 * * MON` - Every Monday at midnight
+- `*/5 * * * *` - Every 5 minutes
+
+See [crontab.guru](https://crontab.guru/) for more examples.
+
+### Updating Schedules
+
+When you update a pipeline's schedule via the API, the scheduler automatically reschedules the job:
+
+```bash
+# Update a pipeline's schedule
+curl -X PUT http://localhost:3000/pipelines/{id} \
+  -H "Content-Type: application/json" \
+  -d '{ "schedule": "0 3 * * *" }'
+```
+
+Invalid cron expressions will be rejected with a 400 error.
+
+## Mock Data Seeding
+
+This directory contains scripts to seed the database with test data for development and testing.
+
+### mockData.ts
+
+Seeds the database with realistic test data:
+
+- **3 Users** - admin, operator, viewer roles
+- **3 Datasets** - customer-transactions, product-inventory, user-analytics
+- **9 Pipelines** - 3 pipelines per dataset
+- **18 Pipeline Versions** - 2 versions per pipeline
+- **6 Alert Rules** - Alert rules for selected pipelines
+
+**Usage:**
+
+```bash
+npm run db:seed
+```
+
+### runPipelines.ts
+
+Triggers all pipelines to create sample job runs and track their execution:
+
+- Connects to RabbitMQ
+- Gets all active pipelines from database
+- Publishes a trigger message for each pipeline
+- Creates job runs that can be monitored in real-time
+
+**Usage:**
+
+```bash
+npm run db:run-pipelines
+```
+
+**Note:** Run `db:seed` before `db:run-pipelines`
+
+## Environment Variables
+
+```bash
+# RabbitMQ connection
+RABBITMQ_URL=amqp://[username]:[password]@[host]:[port]
+
+# Database
+DATABASE_URL=postgresql://[user]:[password]@[host]/[database]
+
+# Server
+PORT=3000
+NODE_ENV=development
+DEBUG_SCHEDULER=true  # Optional logging
+```

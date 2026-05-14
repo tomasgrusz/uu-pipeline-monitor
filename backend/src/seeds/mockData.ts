@@ -72,9 +72,9 @@ export async function seedDatabase() {
     for (const dataset of createdDatasets) {
       const pipelineConfigs = [
         {
-          name: `${dataset.name}-daily-aggregation`,
-          description: `Daily aggregation for ${dataset.name}`,
-          schedule: '0 2 * * *', // 2 AM daily
+          name: `${dataset.name}-frequent-sync`,
+          description: `Frequent data sync for ${dataset.name} (every 5 minutes)`,
+          schedule: '*/5 * * * *', // Every 5 minutes (for testing)
         },
         {
           name: `${dataset.name}-hourly-sync`,
