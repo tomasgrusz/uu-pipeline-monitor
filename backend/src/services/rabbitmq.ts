@@ -54,7 +54,7 @@ export async function disconnectRabbitMQ(): Promise<void> {
 /**
  * Publish a pipeline trigger message to the queue
  */
-export async function publishPipelineRun(pipelineId: string): Promise<void> {
+export async function publishPipelineRun(pipelineId: string, triggeredBy: string = 'api'): Promise<void> {
   if (!channel) {
     throw new Error('RabbitMQ channel not initialized');
   }
@@ -62,17 +62,26 @@ export async function publishPipelineRun(pipelineId: string): Promise<void> {
   const message = {
     pipelineId,
     timestamp: new Date().toISOString(),
-    triggeredBy: 'api',
+    triggeredBy,
   };
 
-  channel.publish(
-    EXCHANGE_NAME,
-    'pipeline.trigger',
-    Buffer.from(JSON.stringify(message)),
-    { persistent: true }
-  );
-
-  console.log(`📤 Published pipeline run: ${pipelineId}`);
+  try {
+    const ok = channel.publish(
+      EXCHANGE_NAME,
+      'pipeline.trigger',
+      Buffer.from(JSON.stringify(message)),
+      { persistent: true }
+    );
+    
+    if (!ok) {
+      throw new Error('Failed to publish message to RabbitMQ');
+    }
+    
+    console.log(`📤 Published pipeline run: ${pipelineId} (triggered by: ${triggeredBy})`);
+  } catch (error) {
+    console.error(`❌ Failed to publish pipeline run: ${error instanceof Error ? error.message : error}`);
+    throw error;
+  }
 }
 
 /**
@@ -85,8 +94,13 @@ export async function consumePipelineRuns(
     throw new Error('RabbitMQ channel not initialized');
   }
 
+  console.log('🔄 Setting up message consumer...');
+  
   await channel.consume(PIPELINE_QUEUE, async (msg) => {
-    if (!msg) return;
+    if (!msg) {
+      console.warn('⚠️  Received null message from queue');
+      return;
+    }
 
     try {
       const content = JSON.parse(msg.content.toString());
@@ -99,14 +113,20 @@ export async function consumePipelineRuns(
       channel!.ack(msg);
       console.log(`✅ Acknowledged pipeline run: ${content.pipelineId}`);
     } catch (error) {
-      console.error('Error processing pipeline run:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('❌ Error processing pipeline run:', errorMsg);
+      console.error(error);
       // Reject the message and requeue it
-      channel!.nack(msg, false, true);
-      console.log(`❌ Rejected and requeued pipeline run`);
+      try {
+        channel!.nack(msg, false, true);
+        console.log(`🔄 Rejected and requeued message`);
+      } catch (nackError) {
+        console.error('Failed to nack message:', nackError);
+      }
     }
-  });
+  }, { noAck: false });
 
-  console.log('🔄 Listening for pipeline runs on RabbitMQ...');
+  console.log('✅ Consumer started - listening for pipeline runs on RabbitMQ...');
 }
 
 /**

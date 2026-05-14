@@ -37,7 +37,7 @@ export async function startCronScheduler() {
                 `⏰ Cron triggered: ${pipeline.name} (${pipeline.schedule})`
               );
               try {
-                await publishPipelineRun(pipeline.id);
+                await publishPipelineRun(pipeline.id, 'cron');
                 console.log(`   ✓ Published to RabbitMQ`);
               } catch (error) {
                 console.error(
@@ -117,7 +117,7 @@ export async function reschedulePipeline(pipelineId: string) {
     async () => {
       console.log(`⏰ Cron triggered: ${p.name} (${p.schedule})`);
       try {
-        await publishPipelineRun(p.id);
+        await publishPipelineRun(p.id, 'cron');
         console.log(`   ✓ Published to RabbitMQ`);
       } catch (error) {
         console.error(
