@@ -59,6 +59,13 @@ td {
   border-bottom: 1px solid #e5e7eb;
 }
 
+.mono {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Monaco, Consolas,
+    Liberation Mono, monospace;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+
 tbody tr:hover {
   background-color: #f9fafb;
 }
@@ -78,6 +85,26 @@ tbody tr:last-child td {
 .badge-primary {
   background-color: #dbeafe;
   color: #1e40af;
+}
+
+.badge-pending {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.badge-running {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-failed {
+  background-color: #fee2e2;
+  color: #991b1b;
 }
 
 .loading {
