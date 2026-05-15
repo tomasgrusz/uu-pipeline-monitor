@@ -65,6 +65,36 @@ You should see:
 Swagger UI should be accessible at `http://localhost:3000/docs`.
 RabbitMQ UI should be accessible at `http://localhost:15672/`.
 
+### 4. Start the Frontend
+
+The project includes a Next.js frontend in the `frontend/` folder. By default the frontend will also try to use port 3000, so run it on a different port (e.g. `3001`) while the backend is running.
+
+```bash
+# Install frontend deps
+cd frontend
+npm install
+
+# Start development server on port 3001
+npm run dev -- -p 3001
+```
+
+Open the UI at `http://localhost:3001`.
+
+Frontend environment variables:
+
+```bash
+# Point the frontend at the backend API (default: http://localhost:3000)
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+Build and start the production frontend:
+
+```bash
+cd frontend
+npm run build
+npm run start -- -p 3001
+```
+
 ---
 
 ## Docker Services Management
