@@ -93,7 +93,7 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
   datasets.forEach((d) => datasetMap.set(d.id, d));
 
   // apply filters
-  const filteredPipelines = pipelines.filter((p) => {
+  let filteredPipelines = pipelines.filter((p) => {
     if (
       selectedDatasetIds.length > 0 &&
       !selectedDatasetIds.includes(p.datasetId)
@@ -106,6 +106,14 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
 
     return true;
   });
+
+  // sort by createdAt descending (most recent first)
+  filteredPipelines = filteredPipelines
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
 
   return (
     <div>
@@ -171,6 +179,13 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
             const pipelineRuns = runs.filter(
               (run) => run.pipelineId === pipeline.id,
             );
+            const pipelineRunsSorted = pipelineRuns
+              .slice()
+              .sort(
+                (a, b) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime(),
+              );
             // pick most recent by finishedAt, then startedAt, then createdAt
             const mostRecentRun = pipelineRuns.slice().sort((a, b) => {
               const aTime = a.finishedAt ?? a.startedAt ?? a.createdAt;
@@ -265,7 +280,7 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
                               </tr>
                             </thead>
                             <tbody>
-                              {pipelineRuns.map((run) => (
+                              {pipelineRunsSorted.map((run) => (
                                 <tr key={run.id}>
                                   <td className="mono">{run.id}</td>
                                   <td>{run.pipelineVersion}</td>

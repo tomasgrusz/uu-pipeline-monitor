@@ -32,6 +32,20 @@ export interface JobRun {
   createdAt: string;
 }
 
+export interface JobRunStep {
+  id: string;
+  runId: string;
+  name: string;
+  status: "pending" | "running" | "success" | "failed";
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export interface JobRunDetail extends JobRun {
+  steps: JobRunStep[];
+}
+
 export async function getDatasets(): Promise<Dataset[]> {
   try {
     const response = await fetch(`${API_URL}/datasets`, {
@@ -89,6 +103,24 @@ export async function getRuns(): Promise<JobRun[]> {
     return await response.json();
   } catch (error) {
     console.error("Error fetching runs:", error);
+    throw error;
+  }
+}
+
+export async function getRunById(id: string): Promise<JobRunDetail> {
+  try {
+    const response = await fetch(`${API_URL}/runs/${id}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch run ${id}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching run by id:", error);
     throw error;
   }
 }
