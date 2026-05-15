@@ -224,6 +224,22 @@ h1 {
   gap: 1rem;
 }
 
+.filters-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.filters-row .multi-select {
+  flex: 1 1 420px;
+  min-width: 220px;
+}
+
+.filters-row .active-filter {
+  white-space: nowrap;
+}
+
 .filter-label-row {
   display: flex;
   align-items: center;
@@ -484,6 +500,11 @@ table {
     Liberation Mono, monospace;
   font-size: 0.875rem;
   word-break: break-all;
+}
+
+.small {
+  font-size: 0.82rem;
+  color: #6b7280;
 }
 
 tbody tr:hover {
