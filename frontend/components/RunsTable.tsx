@@ -1,47 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getRuns, type JobRun } from "@/lib/api";
+import { type Dataset, type JobRun, type Pipeline } from "@/lib/api";
 
 type RunsTableProps = {
-  refreshSignal: number;
+  runs: JobRun[];
+  pipelinesById: Record<string, Pipeline>;
+  datasetsById: Record<string, Dataset>;
 };
 
-export function RunsTable({ refreshSignal }: RunsTableProps) {
-  const [runs, setRuns] = useState<JobRun[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchRuns() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getRuns();
-        setRuns(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load runs");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchRuns();
-  }, [refreshSignal]);
-
-  if (loading) {
-    return <div className="loading">Loading job runs...</div>;
-  }
-
-  if (error) {
-    return <div className="error">Error: {error}</div>;
-  }
-
+export function RunsTable({
+  runs,
+  pipelinesById,
+  datasetsById,
+}: RunsTableProps) {
   if (runs.length === 0) {
     return (
       <div className="empty-state">
-        <h2>No job runs found</h2>
-        <p>Trigger a pipeline to create its first job run.</p>
+        <h2>No job runs match the selected filters</h2>
+        <p>Try clearing one or more filters above.</p>
       </div>
     );
   }
@@ -51,7 +27,8 @@ export function RunsTable({ refreshSignal }: RunsTableProps) {
       <thead>
         <tr>
           <th>Run ID</th>
-          <th>Pipeline ID</th>
+          <th>Pipeline</th>
+          <th>Dataset</th>
           <th>Version</th>
           <th>Status</th>
           <th>Started At</th>
@@ -65,7 +42,20 @@ export function RunsTable({ refreshSignal }: RunsTableProps) {
         {runs.map((run) => (
           <tr key={run.id}>
             <td className="mono">{run.id}</td>
-            <td className="mono">{run.pipelineId}</td>
+            <td>
+              <div className="table-meta">
+                <strong>
+                  {pipelinesById[run.pipelineId]?.name ?? run.pipelineId}
+                </strong>
+                <span className="mono">{run.pipelineId}</span>
+              </div>
+            </td>
+            <td className="mono">
+              {datasetsById[pipelinesById[run.pipelineId]?.datasetId ?? ""]
+                ?.name ??
+                pipelinesById[run.pipelineId]?.datasetId ??
+                "-"}
+            </td>
             <td>{run.pipelineVersion}</td>
             <td>
               <span className={`badge badge-${run.status}`}>{run.status}</span>
