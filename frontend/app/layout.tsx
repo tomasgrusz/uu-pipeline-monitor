@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { NavBar } from "@/components/NavBar";
 
 export const metadata: Metadata = {
   title: "UU Pipeline Monitor",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <NavBar />
         <main>
           <div className="container">{children}</div>
         </main>
