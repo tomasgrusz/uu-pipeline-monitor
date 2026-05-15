@@ -5,6 +5,9 @@ import {
   getPipelines,
   getRuns,
   getDatasets,
+  triggerPipeline,
+  updatePipeline,
+  deletePipeline,
   type JobRun,
   type Pipeline,
   type Dataset,
@@ -13,6 +16,7 @@ import {
   SearchableMultiSelect,
   type SearchableOption,
 } from "./SearchableMultiSelect";
+import { CreatePipelineModal } from "./CreatePipelineModal";
 
 type PipelinesTableProps = {
   refreshSignal: number;
@@ -29,24 +33,21 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
   const [activeFilter, setActiveFilter] = useState<
     "all" | "active" | "inactive"
   >("all");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
-        const [pipelineData, runData] = await Promise.all([
+        const [pipelineData, runData, ds] = await Promise.all([
           getPipelines(),
           getRuns(),
+          getDatasets(),
         ]);
         setPipelines(pipelineData);
         setRuns(runData);
-        try {
-          const ds = await getDatasets();
-          setDatasets(ds);
-        } catch (err) {
-          console.error("Failed to load datasets", err);
-        }
+        setDatasets(ds);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load pipelines",
@@ -58,6 +59,24 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
 
     fetchData();
   }, [refreshSignal]);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [pipelineData, runData, ds] = await Promise.all([
+        getPipelines(),
+        getRuns(),
+        getDatasets(),
+      ]);
+      setPipelines(pipelineData);
+      setRuns(runData);
+      setDatasets(ds);
+    } catch (err) {
+      console.error("Failed to reload pipelines", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function togglePipeline(pipelineId: string) {
     setExpandedPipelineIds((current) =>
@@ -117,6 +136,20 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
 
   return (
     <div>
+      <div className="table-toolbar">
+        <div>
+          <p className="eyebrow">Pipeline catalog</p>
+          <h2>Manage pipelines, runs, and lifecycle actions</h2>
+        </div>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => setIsCreateModalOpen(true)}
+        >
+          + New pipeline
+        </button>
+      </div>
+
       <div className="filters-row">
         <SearchableMultiSelect
           label="Dataset"
@@ -158,6 +191,13 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
           </div>
         </div>
       </div>
+
+      <CreatePipelineModal
+        open={isCreateModalOpen}
+        datasets={datasets}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={reload}
+      />
 
       <table>
         <thead>
@@ -254,6 +294,140 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
                   </td>
                   <td>{new Date(pipeline.createdAt).toLocaleString()}</td>
                   <td>{new Date(pipeline.updatedAt).toLocaleString()}</td>
+                  <td className="actions-cell">
+                    <div className="actions">
+                      <button
+                        type="button"
+                        title="Run pipeline"
+                        className="icon-button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await triggerPipeline(pipeline.id);
+                            await reload();
+                          } catch (err) {
+                            alert("Failed to trigger pipeline");
+                          }
+                        }}
+                      >
+                        {/* play icon */}
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden
+                        >
+                          <path d="M5 3v18l15-9L5 3z" fill="currentColor" />
+                        </svg>
+                      </button>
+
+                      <button
+                        type="button"
+                        title={
+                          pipeline.active
+                            ? "Deactivate pipeline"
+                            : "Activate pipeline"
+                        }
+                        className="icon-button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await updatePipeline(pipeline.id, {
+                              active: !pipeline.active,
+                            });
+                            await reload();
+                          } catch (err) {
+                            alert("Failed to update pipeline");
+                          }
+                        }}
+                      >
+                        {/* switch icon */}
+                        {pipeline.active ? (
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden
+                          >
+                            <path
+                              d="M7 12a5 5 0 0 0 10 0 5 5 0 0 0-10 0z"
+                              fill="currentColor"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden
+                          >
+                            <path
+                              d="M3 12a9 9 0 0 0 18 0 9 9 0 0 0-18 0z"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              fill="none"
+                            />
+                          </svg>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Delete pipeline"
+                        className="icon-button dangerous"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const ok = window.confirm(
+                            `Delete pipeline ${pipeline.name}? Are you sure?`,
+                          );
+                          if (!ok) return;
+                          try {
+                            await deletePipeline(pipeline.id);
+                            await reload();
+                          } catch (err) {
+                            alert("Failed to delete pipeline");
+                          }
+                        }}
+                      >
+                        {/* trash icon */}
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden
+                        >
+                          <path
+                            d="M3 6h18"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M10 11v6M14 11v6"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
 
                 {expandedPipelineIds.includes(pipeline.id) ? (

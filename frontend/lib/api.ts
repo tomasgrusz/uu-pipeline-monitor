@@ -124,3 +124,97 @@ export async function getRunById(id: string): Promise<JobRunDetail> {
     throw error;
   }
 }
+
+export async function createDataset(data: {
+  name: string;
+  description?: string;
+  owner: string;
+  schemaVersion?: number;
+}): Promise<Dataset> {
+  try {
+    const response = await fetch(`${API_URL}/datasets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create dataset: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating dataset:", error);
+    throw error;
+  }
+}
+
+export async function createPipeline(data: {
+  datasetId: string;
+  name: string;
+  description?: string;
+  schedule?: string;
+  active?: boolean;
+}): Promise<Pipeline> {
+  try {
+    const response = await fetch(`${API_URL}/pipelines`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create pipeline: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating pipeline:", error);
+    throw error;
+  }
+}
+
+export async function triggerPipeline(pipelineId: string): Promise<{ pipelineId: string; status: string; message: string }>{
+  try{
+    const response = await fetch(`${API_URL}/pipelines/${pipelineId}/trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if(!response.ok) throw new Error(`Failed to trigger pipeline: ${response.statusText}`);
+    return await response.json();
+  }catch(err){
+    console.error('Error triggering pipeline', err);
+    throw err;
+  }
+}
+
+export async function updatePipeline(pipelineId: string, data: Record<string, any>){
+  try{
+    const response = await fetch(`${API_URL}/pipelines/${pipelineId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if(!response.ok) throw new Error(`Failed to update pipeline: ${response.statusText}`);
+    return await response.json();
+  }catch(err){
+    console.error('Error updating pipeline', err);
+    throw err;
+  }
+}
+
+export async function deletePipeline(pipelineId: string){
+  try{
+    const response = await fetch(`${API_URL}/pipelines/${pipelineId}`, {
+      method: 'DELETE',
+    });
+
+    if(!response.ok && response.status !== 204) throw new Error(`Failed to delete pipeline: ${response.statusText}`);
+    return true;
+  }catch(err){
+    console.error('Error deleting pipeline', err);
+    throw err;
+  }
+}
