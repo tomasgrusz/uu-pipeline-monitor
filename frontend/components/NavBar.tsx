@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", note: "TBA" },
+  { href: "/", label: "Dashboard" },
   { href: "/datasets", label: "Datasets" },
   { href: "/pipelines", label: "Pipelines" },
   { href: "/runs", label: "Runs" },
@@ -37,9 +37,6 @@ export function NavBar() {
                 className={`nav-link ${active ? "nav-link-active" : ""}`}
               >
                 <span>{item.label}</span>
-                {item.note ? (
-                  <span className="nav-note">{item.note}</span>
-                ) : null}
               </Link>
             );
           })}

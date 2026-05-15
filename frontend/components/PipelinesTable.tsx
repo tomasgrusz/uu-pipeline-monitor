@@ -219,19 +219,12 @@ export function PipelinesTable({ refreshSignal }: PipelinesTableProps) {
             const pipelineRuns = runs.filter(
               (run) => run.pipelineId === pipeline.id,
             );
-            const pipelineRunsSorted = pipelineRuns
-              .slice()
-              .sort(
-                (a, b) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime(),
-              );
-            // pick most recent by finishedAt, then startedAt, then createdAt
-            const mostRecentRun = pipelineRuns.slice().sort((a, b) => {
+            const pipelineRunsSorted = pipelineRuns.slice().sort((a, b) => {
               const aTime = a.finishedAt ?? a.startedAt ?? a.createdAt;
               const bTime = b.finishedAt ?? b.startedAt ?? b.createdAt;
               return new Date(bTime).getTime() - new Date(aTime).getTime();
-            })[0];
+            });
+            const mostRecentRun = pipelineRunsSorted[0];
 
             return (
               <Fragment key={pipeline.id}>
