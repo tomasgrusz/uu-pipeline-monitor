@@ -148,6 +148,51 @@ h1 {
   gap: 1rem;
 }
 
+.dashboard-grid-12 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.card-small .card-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.top-pipelines {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pipeline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.pipeline-item:hover {
+  background: #f9fafb;
+  border-color: #e6eef8;
+}
+
+.pipeline-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pipeline-name {
+  font-weight: 700;
+  color: #111827;
+}
+
+.pipeline-sub {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
 .dashboard-card {
   background: #ffffff;
   border: 1px solid #e5e7eb;
