@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import { sql } from 'drizzle-orm';
@@ -15,6 +16,10 @@ import { startCronScheduler, stopCronScheduler } from './services/cronScheduler'
 
 const app = Fastify({
   logger: true,
+});
+
+await app.register(fastifyCors, {
+  origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
 });
 
 // Register Swagger

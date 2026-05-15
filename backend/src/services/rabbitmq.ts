@@ -114,7 +114,13 @@ export async function publishPipelineRun(pipelineId: string, pipelineVersion: nu
  * are queued to prevent data conflicts.
  */
 export async function consumePipelineRuns(
-  handler: (message: { jobRunId: string; pipelineId: string; timestamp: string; triggeredBy: string }) => Promise<void>
+  handler: (message: {
+    jobRunId: string;
+    pipelineId: string;
+    datasetId: string;
+    timestamp: string;
+    triggeredBy: string;
+  }) => Promise<void>
 ): Promise<void> {
   if (!channel) {
     throw new Error('RabbitMQ channel not initialized');
@@ -157,9 +163,8 @@ export async function consumePipelineRuns(
         .set({ status: 'running', startedAt: new Date() })
         .where(eq(jobRuns.id, content.jobRunId));
 
-      // Call the handler
-      content.datasetId = datasetId; // Pass datasetId to handler
-      await handler(content);
+      // Call the handler with the resolved dataset context
+      await handler({ ...content, datasetId });
 
       // Acknowledge the message after successful processing
       channel!.ack(msg);
