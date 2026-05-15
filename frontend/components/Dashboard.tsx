@@ -93,6 +93,42 @@ function StatusBars({ counts }: { counts: Record<string, number> }) {
   );
 }
 
+function AlertCard({
+  message,
+  ruleName,
+  pipelineName,
+  runId,
+  createdAt,
+}: {
+  message: string;
+  ruleName: string;
+  pipelineName: string;
+  runId: string;
+  createdAt: string;
+}) {
+  return (
+    <li className="alert-card">
+      <div className="alert-card-header">
+        <div>
+          <p className="alert-card-label">Triggered alert</p>
+          <div className="alert-card-title">{ruleName}</div>
+        </div>
+        <span className="badge badge-failed alert-card-badge">Active</span>
+      </div>
+
+      <p className="alert-card-message">{message}</p>
+
+      <div className="alert-card-meta">
+        <span>{pipelineName}</span>
+        <span className="dot-separator">•</span>
+        <span className="mono">Run {runId.slice(0, 8)}</span>
+      </div>
+
+      <div className="alert-card-time mono muted">{formatDate(createdAt)}</div>
+    </li>
+  );
+}
+
 export default function Dashboard() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [runs, setRuns] = useState<JobRun[]>([]);
@@ -192,6 +228,14 @@ export default function Dashboard() {
   const datasetMap = useMemo(
     () => new Map(datasets.map((d) => [d.id, d.name])),
     [datasets],
+  );
+  const pipelineMap = useMemo(
+    () => new Map(pipelines.map((p) => [p.id, p.name])),
+    [pipelines],
+  );
+  const ruleMap = useMemo(
+    () => new Map(alertRules.map((rule) => [rule.id, rule])),
+    [alertRules],
   );
 
   const enabledRules = useMemo(
@@ -373,17 +417,40 @@ export default function Dashboard() {
           <div style={{ marginTop: "1rem" }}>
             <div className="section-header">
               <h2>Recent alerts</h2>
+              <p className="small muted">
+                Triggered notifications and failures
+              </p>
             </div>
-            <ul className="list-compact">
-              {recentAlerts.map((a) => (
-                <li key={a.id}>
-                  <div>{a.message || a.id}</div>
-                  <div className="small mono muted">
-                    {formatDate(a.createdAt)}
+            <div className="alerts-panel">
+              {recentAlerts.length > 0 ? (
+                <ul className="alerts-feed">
+                  {recentAlerts.map((alert) => {
+                    const rule = ruleMap.get(alert.ruleId);
+                    const pipelineName = rule
+                      ? (pipelineMap.get(rule.pipelineId) ?? rule.pipelineId)
+                      : "Unknown pipeline";
+
+                    return (
+                      <AlertCard
+                        key={alert.id}
+                        message={alert.message || alert.id}
+                        ruleName={rule?.name ?? "Triggered alert"}
+                        pipelineName={pipelineName}
+                        runId={alert.runId}
+                        createdAt={alert.createdAt}
+                      />
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="alerts-empty">
+                  <div className="alerts-empty-title">No recent alerts</div>
+                  <div className="small muted">
+                    Alert events will appear here once rules are triggered.
                   </div>
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+            </div>
           </div>
         </aside>
       </div>
