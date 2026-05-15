@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { href: "/datasets", label: "Datasets" },
   { href: "/pipelines", label: "Pipelines" },
   { href: "/runs", label: "Runs" },
-  { href: "/alerts", label: "Alerts", note: "TBA" },
+  { href: "/alerts", label: "Alerts" },
 ];
 
 export function NavBar() {

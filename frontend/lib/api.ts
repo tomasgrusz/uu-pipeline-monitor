@@ -46,6 +46,24 @@ export interface JobRunDetail extends JobRun {
   steps: JobRunStep[];
 }
 
+export interface AlertRule {
+  id: string;
+  pipelineId: string;
+  name: string;
+  condition: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  ruleId: string;
+  runId: string;
+  message: string;
+  createdAt: string;
+}
+
 export async function getDatasets(): Promise<Dataset[]> {
   try {
     const response = await fetch(`${API_URL}/datasets`, {
@@ -125,6 +143,42 @@ export async function getRunById(id: string): Promise<JobRunDetail> {
   }
 }
 
+export async function getAlertRules(): Promise<AlertRule[]> {
+  try {
+    const response = await fetch(`${API_URL}/alert-rules`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch alert rules: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching alert rules:", error);
+    throw error;
+  }
+}
+
+export async function getAlertEvents(): Promise<AlertEvent[]> {
+  try {
+    const response = await fetch(`${API_URL}/alert-events`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch alert events: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching alert events:", error);
+    throw error;
+  }
+}
+
 export async function createDataset(data: {
   name: string;
   description?: string;
@@ -145,6 +199,30 @@ export async function createDataset(data: {
     return await response.json();
   } catch (error) {
     console.error("Error creating dataset:", error);
+    throw error;
+  }
+}
+
+export async function createAlertRule(data: {
+  pipelineId: string;
+  name: string;
+  condition: string;
+  enabled?: boolean;
+}): Promise<AlertRule> {
+  try {
+    const response = await fetch(`${API_URL}/alert-rules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create alert rule: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating alert rule:", error);
     throw error;
   }
 }
