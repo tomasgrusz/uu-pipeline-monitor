@@ -1,5 +1,6 @@
 import { db } from '../db';
-import { users, datasets, pipelines, pipelineVersions, alertRules } from '../schema';
+import { users, datasets, pipelines, pipelineVersions, alertRules, jobRuns, jobRunSteps, alertEvents } from '../schema';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * Seed the database with mock data
@@ -187,6 +188,116 @@ export async function seedDatabase() {
     }
 
     console.log(`   ✓ Created ${alertCount} alert rules\n`);
+
+    // Create job runs and steps for each pipeline
+    console.log('🏃 Creating job runs and steps...');
+    let totalRuns = 0;
+
+    const allPipelines = await db.select().from(pipelines);
+    for (const pipeline of allPipelines) {
+      // Get latest pipeline version (fallback to 1)
+      const versions = await db.select().from(pipelineVersions).where(eq(pipelineVersions.pipelineId, pipeline.id)).orderBy(desc(pipelineVersions.version)).limit(1);
+      const version = versions[0]?.version ?? 1;
+
+      // Create 5 successful runs with steps
+      for (let i = 0; i < 5; i++) {
+        const started = new Date(Date.now() - (i + 1) * 60000);
+        const finished = new Date(started.getTime() + (30000 + Math.floor(Math.random() * 30000)));
+        const records = Math.floor(1000 + Math.random() * 9000);
+
+        const inserted = await db
+          .insert(jobRuns)
+          .values({
+            pipelineId: pipeline.id,
+            pipelineVersion: version,
+            status: 'success',
+            startedAt: started,
+            finishedAt: finished,
+            recordsProcessed: records,
+          })
+          .returning();
+
+        const run = inserted[0];
+
+        // Create steps for the run
+        const stepNames = ['extract', 'transform', 'load'];
+        let stepStart = new Date(started);
+        for (const stepName of stepNames) {
+          const stepDuration = 5000 + Math.floor(Math.random() * 10000);
+          const stepFinished = new Date(stepStart.getTime() + stepDuration);
+          await db.insert(jobRunSteps).values({
+            runId: run.id,
+            name: stepName,
+            status: 'success',
+            startedAt: stepStart,
+            finishedAt: stepFinished,
+          });
+          stepStart = new Date(stepFinished.getTime() + 1000);
+        }
+
+        totalRuns++;
+      }
+
+      // Create 2-3 failed runs with partial steps and alert events
+      const failedCount = 2 + Math.floor(Math.random() * 2); // 2 or 3
+      for (let j = 0; j < failedCount; j++) {
+        const started = new Date(Date.now() - (10 + j) * 60000);
+        const finished = new Date(started.getTime() + (5000 + Math.floor(Math.random() * 15000)));
+        const records = Math.floor(Math.random() * 500);
+        const error = 'Step transform failed with exception';
+
+        const inserted = await db
+          .insert(jobRuns)
+          .values({
+            pipelineId: pipeline.id,
+            pipelineVersion: version,
+            status: 'failed',
+            startedAt: started,
+            finishedAt: finished,
+            recordsProcessed: records,
+            errorMessage: error,
+          })
+          .returning();
+
+        const run = inserted[0];
+
+        // Extract step succeeded
+        const step1Finished = new Date(started.getTime() + 5000);
+        await db.insert(jobRunSteps).values({
+          runId: run.id,
+          name: 'extract',
+          status: 'success',
+          startedAt: started,
+          finishedAt: step1Finished,
+        });
+
+        // Transform step failed
+        const step2Start = new Date(step1Finished.getTime() + 1000);
+        const step2Finished = new Date(step2Start.getTime() + 3000);
+        await db.insert(jobRunSteps).values({
+          runId: run.id,
+          name: 'transform',
+          status: 'failed',
+          startedAt: step2Start,
+          finishedAt: step2Finished,
+        });
+
+        totalRuns++;
+
+        // Create alert event(s) for this failed run if alert rules exist for the pipeline
+        const rules = await db.select().from(alertRules).where(eq(alertRules.pipelineId, pipeline.id));
+        if (rules.length > 0) {
+          const rule = rules[0];
+          await db.insert(alertEvents).values({
+            ruleId: rule.id,
+            runId: run.id,
+            message: `Pipeline ${pipeline.name} failed: ${error}`,
+          });
+        }
+      }
+    }
+
+    console.log(`   ✓ Created ${totalRuns} job runs (including failed runs)\n`);
 
     console.log('✅ Database seeding completed!\n');
     console.log('📈 Summary:');
