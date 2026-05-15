@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { getDatasets, type Dataset } from "@/lib/api";
 
-export function DatasetTable() {
+type DatasetTableProps = {
+  refreshSignal: number;
+};
+
+export function DatasetTable({ refreshSignal }: DatasetTableProps) {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +29,7 @@ export function DatasetTable() {
     }
 
     fetchDatasets();
-  }, []);
+  }, [refreshSignal]);
 
   if (loading) {
     return <div className="loading">Loading datasets...</div>;

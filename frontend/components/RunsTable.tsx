@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { getRuns, type JobRun } from "@/lib/api";
 
-export function RunsTable() {
+type RunsTableProps = {
+  refreshSignal: number;
+};
+
+export function RunsTable({ refreshSignal }: RunsTableProps) {
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +27,7 @@ export function RunsTable() {
     }
 
     fetchRuns();
-  }, []);
+  }, [refreshSignal]);
 
   if (loading) {
     return <div className="loading">Loading job runs...</div>;
