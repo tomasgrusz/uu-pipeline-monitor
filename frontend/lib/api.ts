@@ -256,7 +256,6 @@ export async function triggerPipeline(pipelineId: string): Promise<{ pipelineId:
   try{
     const response = await fetch(`${API_URL}/pipelines/${pipelineId}/trigger`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
     });
 
     if(!response.ok) throw new Error(`Failed to trigger pipeline: ${response.statusText}`);
