@@ -2,7 +2,37 @@
 
 A modern full-stack application for asynchronous pipeline monitoring with Fastify backend, PostgreSQL database, and RabbitMQ message queue.
 
-## Quick Start
+## 🏗️ Architecture
+
+The system uses RabbitMQ for asynchronous pipeline execution and node-cron for scheduled execution:
+
+```
+Manual Trigger          RabbitMQ Queue        Worker Process
+┌──────────────┐        ┌─────────────────┐   ┌──────────────┐
+│ POST /trigger│ ────> │ pipeline.runs   │ ──> │ Process Job │
+└──────────────┘        │ (Durable Queue) │   └──────────────┘
+                        └─────────────────┘
+                              ^
+                              │
+                        Cron Scheduler
+                     (Based on schedule)
+```
+
+- **Trigger Endpoint**: `POST /pipelines/{id}/trigger` publishes to queue (manual execution)
+- **Cron Scheduler**: Automatically triggers pipelines based on their cron schedule (e.g., `0 2 * * *` for 2 AM daily)
+- **Worker**: Consumes messages and executes pipelines
+- **Database**: Tracks pipeline runs and alert events
+- **Alerts**: Evaluated after each run completes
+
+Interactive API documentation available at:
+
+```
+http://localhost:3000/docs
+```
+
+---
+
+## ⏩️ Quick Start
 
 ### Prerequisites
 
@@ -63,6 +93,7 @@ You should see:
 ```
 
 Swagger UI should be accessible at `http://localhost:3000/docs`.
+
 RabbitMQ UI should be accessible at `http://localhost:15672/`.
 
 ### 4. Start the Frontend
@@ -97,7 +128,7 @@ npm run start -- -p 3001
 
 ---
 
-## Docker Services Management
+## 🐳 Docker Services Management
 
 Included is a helper script for common operations:
 
@@ -112,35 +143,7 @@ Included is a helper script for common operations:
 ./docker.sh rabbitmq     # Open RabbitMQ management UI
 ```
 
-## Architecture
-
-The system uses RabbitMQ for asynchronous pipeline execution and node-cron for scheduled execution:
-
-```
-Manual Trigger          RabbitMQ Queue        Worker Process
-┌──────────────┐        ┌─────────────────┐   ┌──────────────┐
-│ POST /trigger│ ────> │ pipeline.runs   │ ──> │ Process Job │
-└──────────────┘        │ (Durable Queue) │   └──────────────┘
-                        └─────────────────┘
-                              ^
-                              │
-                        Cron Scheduler
-                     (Based on schedule)
-```
-
-- **Trigger Endpoint**: `POST /pipelines/{id}/trigger` publishes to queue (manual execution)
-- **Cron Scheduler**: Automatically triggers pipelines based on their cron schedule (e.g., `0 2 * * *` for 2 AM daily)
-- **Worker**: Consumes messages and executes pipelines
-- **Database**: Tracks pipeline runs and alert events
-- **Alerts**: Evaluated after each run completes
-
-Interactive API documentation available at:
-
-```
-http://localhost:3000/docs
-```
-
-## Type Safety
+## 🛡️ Type Safety
 
 - **TypeScript** - Full type safety across the application
 - **Zod** - Runtime validation for request/response schemas
@@ -149,7 +152,7 @@ http://localhost:3000/docs
 
 All API endpoints are automatically documented and type-checked.
 
-## Scheduling
+## 🕒 Scheduling
 
 Pipelines can be scheduled to run automatically using cron expressions:
 
@@ -170,20 +173,7 @@ Pipelines can be scheduled to run automatically using cron expressions:
 
 See [crontab.guru](https://crontab.guru/) for more examples.
 
-### Updating Schedules
-
-When you update a pipeline's schedule via the API, the scheduler automatically reschedules the job:
-
-```bash
-# Update a pipeline's schedule
-curl -X PUT http://localhost:3000/pipelines/{id} \
-  -H "Content-Type: application/json" \
-  -d '{ "schedule": "0 3 * * *" }'
-```
-
-Invalid cron expressions will be rejected with a 400 error.
-
-## Mock Data Seeding
+## 🌱 Mock Data Seeding
 
 This directory contains scripts to seed the database with test data for development and testing.
 
@@ -196,6 +186,9 @@ Seeds the database with realistic test data:
 - **9 Pipelines** - 3 pipelines per dataset
 - **18 Pipeline Versions** - 2 versions per pipeline
 - **6 Alert Rules** - Alert rules for selected pipelines
+- **30 Job Runs** - Simulated runs with varying statuses and metrics
+- **60 Job Run Steps** - Simulated steps for each job run
+- **15 Alert Events** - Simulated alert events triggered by job runs
 
 **Usage:**
 
@@ -220,7 +213,7 @@ npm run db:run-pipelines
 
 **Note:** Run `db:seed` before `db:run-pipelines`
 
-## Environment Variables
+## 🗒️ Environment Variables
 
 ```bash
 # RabbitMQ connection
