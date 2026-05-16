@@ -6,6 +6,8 @@ A modern full-stack application for asynchronous pipeline monitoring with Fastif
 
 The system uses RabbitMQ for asynchronous pipeline execution and node-cron for scheduled execution:
 
+![Architecture Diagram](./architecture.svg)
+
 ```
 Manual Trigger          RabbitMQ Queue        Worker Process
 ┌──────────────┐        ┌─────────────────┐   ┌──────────────┐
